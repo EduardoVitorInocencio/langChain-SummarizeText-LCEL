@@ -2,6 +2,8 @@ import os
 
 from dotenv import find_dotenv, load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 
 # ----------------------------------------------------------------
@@ -9,18 +11,40 @@ from langchain_openai import ChatOpenAI
 # ----------------------------------------------------------------
 load_dotenv(find_dotenv())
 
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
-os.environ["OLLAMA_API_KEY"] = os.getenv("OLLAMA_API_KEY")
 
-# ----------------------------------------------------------------
-# Example usage of PromptTemplate
-# ----------------------------------------------------------------
+def create_chat_model():
+    provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
 
+    if provider == "openai":
+        if not os.getenv("OPENAI_API_KEY"):
+            raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            temperature=0,
+            max_tokens=500,
+        )
 
-# ----------------------------------------------------------------
-# Example usage of ChatOpenAI
-# ----------------------------------------------------------------
+    if provider == "google":
+        if not os.getenv("GOOGLE_API_KEY"):
+            raise ValueError("GOOGLE_API_KEY is required when LLM_PROVIDER=google")
+        return ChatGoogleGenerativeAI(
+            model=os.getenv("GOOGLE_MODEL", "gemini-2.5-flash"),
+            temperature=0,
+            max_output_tokens=500,
+        )
+
+    if provider == "ollama":
+        return ChatOllama(
+            model=os.getenv("OLLAMA_MODEL", "llama3.2"),
+            temperature=0,
+            num_predict=500,
+            base_url=os.getenv("OLLAMA_BASE_URL") or None,
+        )
+
+    raise ValueError(
+        f"Unsupported LLM_PROVIDER={provider!r}; choose openai, google, or ollama"
+    )
+
 
 def summarize_information(information: str) -> str:
     """
@@ -32,7 +56,7 @@ def summarize_information(information: str) -> str:
     Returns:
         str: The summary of the person's life and important facts.
     """
-    llm = ChatOpenAI(model="gpt-4o-mini")
+    llm = create_chat_model()
     summary_template = """
         Dada a seguinte informação: {information} sobre a pessoa, eu quero que crie:
         1. Um breve resumo da vida da pessoa, com no máximo 100 palavras.
