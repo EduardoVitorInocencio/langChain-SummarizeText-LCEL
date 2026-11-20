@@ -4,9 +4,10 @@ from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import patch
 
-import main
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
+
+import main
 
 
 class ProviderSelectionTests(unittest.TestCase):
@@ -23,8 +24,12 @@ class ProviderSelectionTests(unittest.TestCase):
                     environment[api_key] = "test-key"
                 with patch.dict(os.environ, environment, clear=True):
                     with patch.object(main, constructor) as model_class:
-                        self.assertIs(main.create_chat_model(), model_class.return_value)
-                        self.assertEqual(model_class.call_args.kwargs["model"], "test-model")
+                        self.assertIs(
+                            main.create_chat_model(), model_class.return_value
+                        )
+                        self.assertEqual(
+                            model_class.call_args.kwargs["model"], "test-model"
+                        )
 
     def test_defaults_to_ollama(self):
         with patch.dict(os.environ, {}, clear=True):
@@ -47,7 +52,12 @@ class ProviderSelectionTests(unittest.TestCase):
     def test_real_models_can_be_constructed_without_api_calls(self):
         cases = [
             ("openai", "OPENAI_API_KEY", main.ChatOpenAI, "gpt-4o-mini"),
-            ("google", "GOOGLE_API_KEY", main.ChatGoogleGenerativeAI, "gemini-3.8-flash"),
+            (
+                "google",
+                "GOOGLE_API_KEY",
+                main.ChatGoogleGenerativeAI,
+                "gemini-3.8-flash",
+            ),
             ("ollama", None, main.ChatOllama, "llama3.2"),
         ]
         for provider, api_key, model_class, expected_name in cases:
