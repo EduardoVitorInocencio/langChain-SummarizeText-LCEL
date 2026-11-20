@@ -1,88 +1,149 @@
+
 import os
 
-from dotenv import find_dotenv, load_dotenv
+from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 
-# ----------------------------------------------------------------
-# Load environment variables from .env file
-# ----------------------------------------------------------------
-load_dotenv(find_dotenv())
+
+# --------------------------------------------------
+# Load environment variables
+# --------------------------------------------------
+load_dotenv()
 
 
+# --------------------------------------------------
+# LLM Factory
+# --------------------------------------------------
 def create_chat_model():
-    provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+    provider = os.getenv(
+        "LLM_PROVIDER", "ollama"
+    ).strip().lower()
 
     if provider == "openai":
         if not os.getenv("OPENAI_API_KEY"):
-            raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
+            raise ValueError(
+                "OPENAI_API_KEY is required"
+            )
+
         return ChatOpenAI(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            model=os.getenv(
+                "OPENAI_MODEL", "gpt-4o-mini"
+            ),
             temperature=0,
             max_tokens=500,
         )
 
     if provider == "google":
         if not os.getenv("GOOGLE_API_KEY"):
-            raise ValueError("GOOGLE_API_KEY is required when LLM_PROVIDER=google")
+            raise ValueError(
+                "GOOGLE_API_KEY is required"
+            )
+
         return ChatGoogleGenerativeAI(
-            model=os.getenv("GOOGLE_MODEL", "gemini-2.5-flash"),
+            model=os.getenv(
+                "GOOGLE_MODEL", "gemini-3.8-flash"
+            ),
             temperature=0,
             max_output_tokens=500,
         )
 
     if provider == "ollama":
         return ChatOllama(
-            model=os.getenv("OLLAMA_MODEL", "llama3.2"),
+            model=os.getenv(
+                "OLLAMA_MODEL", "llama3.2"
+            ),
+            base_url=os.getenv(
+                "OLLAMA_BASE_URL",
+                "http://localhost:11434"
+            ),
             temperature=0,
             num_predict=500,
-            base_url=os.getenv("OLLAMA_BASE_URL") or None,
         )
 
     raise ValueError(
-        f"Unsupported LLM_PROVIDER={provider!r}; choose openai, google, or ollama"
+        f"Unsupported LLM_PROVIDER={provider!r}. "
+        "Choose openai, google, or ollama."
     )
 
 
+def get_model_name(llm) -> str:
+    return getattr(llm, "model_name", None) or llm.model
+
+
+# --------------------------------------------------
+# Summarization Chain
+# --------------------------------------------------
 def summarize_information(information: str) -> str:
-    """
-    Summarizes the given information about a person.
+    if not information.strip():
+        raise ValueError("Information cannot be empty")
 
-    Args:
-        information (str): The information to summarize.
-
-    Returns:
-        str: The summary of the person's life and important facts.
-    """
     llm = create_chat_model()
-    summary_template = """
-        Dada a seguinte informação: {information} sobre a pessoa, eu quero que crie:
-        1. Um breve resumo da vida da pessoa, com no máximo 100 palavras.
-        2. Uma lista de 3 fatos importantes sobre a pessoa.
-    """
+    print(f"Modelo em uso: {get_model_name(llm)}")
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", summary_template),
-        ("user", "{information}")
+        (
+            "system",
+            """
+            Você é um especialista em biografias.
+
+            Com base no texto fornecido:
+
+            1. Crie um resumo da vida da pessoa
+               com no máximo 100 palavras.
+            2. Liste exatamente 3 fatos importantes.
+            3. Responda em português brasileiro.
+            4. Não invente informações.
+            5. Organize a resposta em Markdown.
+            """
+        ),
+        (
+            "human",
+            "Informações sobre a pessoa:\n\n{information}"
+        )
     ])
 
-    chain = prompt | llm
+    chain = prompt | llm | StrOutputParser()
 
-    answer = chain.invoke({"information": information})
+    return chain.invoke({
+        "information": information
+    })
 
-    print(answer.content)
 
+# --------------------------------------------------
+# Main
+# --------------------------------------------------
 def main():
-    # Example information about a person
     information = """
-        Nelson Rolihlahla Mandela (Mvezo, 18 de julho de 1918 – Joanesburgo, 5 de dezembro de 2013) foi um advogado, líder rebelde e presidente da África do Sul de 1994 a 1999, considerado como o mais importante líder da África Subsaariana, vencedor do Prêmio Nobel da Paz de 1993,[1] e pai da moderna nação sul-africana,[2] onde é normalmente referido como Madiba (nome do seu clã) ou "Tata" ("Pai").
-        Nascido numa família de nobreza tribal, numa pequena aldeia do interior onde possivelmente viria a ocupar cargo de chefia, recusou esse destino aos 23 anos ao seguir para a capital, Joanesburgo, e iniciar sua atuação política.[3] Passando do interior rural para uma vida rebelde na faculdade, transformou-se em um jovem advogado na capital e líder da resistência não violenta da juventude, acabando como réu em um infame julgamento por traição. Foragido, tornou-se depois o prisioneiro mais famoso do mundo e, finalmente, o político mais galardoado em vida, responsável pela refundação do seu país como uma sociedade multiétnica.[4]
-        Mandela passou 27 anos na prisão — inicialmente em Robben Island e, mais tarde, nas prisões de Pollsmoor e Victor Verster. Depois de uma campanha internacional, foi libertado em 1990, quando recrudescia a guerra civil em seu país. Em dezembro de 2013, foi revelado pelo The New York Times que a CIA americana foi a força decisiva para a prisão de Mandela em 1962, quando agentes americanos foram empregados para auxiliar as forças de segurança da África do Sul a localizá-lo.[5] Até 2009, ele havia dedicado 67 anos de sua vida à causa que defendeu como advogado de direitos humanos e pela qual se tornou prisioneiro de um regime de segregação racial, até ser eleito o primeiro presidente da África do Sul livre. Em sua homenagem, a Organização das Nações Unidas instituiu o Dia Internacional Nelson Mandela no dia de seu nascimento, 18 de julho, como forma de valorizar em todo o mundo a luta pela liberdade, pela justiça e pela democracia.[6]
-        Mandela foi uma figura controversa durante grande parte da sua vida. Denunciado como um terrorista comunista por seus críticos,[7][8] ele acabou sendo aclamado internacionalmente por seu ativismo e recebeu mais de 250 prêmios e condecorações, incluindo o Nobel da Paz em 1993, a Medalha Presidencial da Liberdade dos Estados Unidos e a Ordem de Lenin da União Soviética. Seus críticos apontam seus traços egocêntricos e o fato de seu governo ter sido amigo de ditadores simpáticos ao Congresso Nacional Africano (CNA).[9] Foi o mais poderoso símbolo da luta contra o regime segregacionista do Apartheid, sistema racista oficializado em 1948, e modelo mundial de resistência.[1][10] No dizer de Ali Abdessalam Treki, Presidente da Assembleia Geral das Nações Unidas, "um dos maiores líderes morais e políticos de nosso tempo".[11] Recebeu a Medalha Benjamin Franklin por Serviço Público de Destaque de 2000.
+    Nelson Mandela nasceu em 18 de julho de 1918,
+    na África do Sul.
+
+    Foi um advogado, ativista contra o apartheid
+    e líder político sul-africano.
+
+    Passou 27 anos na prisão por sua atuação
+    contra o regime de segregação racial.
+
+    Foi libertado em 1990 e recebeu o
+    Prêmio Nobel da Paz em 1993.
+
+    Em 1994, tornou-se o primeiro presidente
+    negro da África do Sul, governando até 1999.
+
+    Mandela faleceu em 5 de dezembro de 2013.
     """
-    summarize_information(information)
+
+    try:
+        summary = summarize_information(information)
+        print("\n=== RESUMO ===\n")
+        print(summary)
+
+    except Exception as error:
+        print(f"Erro ao gerar resumo: {error}")
+        raise
 
 
 if __name__ == "__main__":

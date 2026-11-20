@@ -10,9 +10,9 @@ uv run python main.py
 
 | `LLM_PROVIDER` | Required setup | Default model | Optional model variable |
 | --- | --- | --- | --- |
-| `openai` (default) | `OPENAI_API_KEY` | `gpt-4o-mini` | `OPENAI_MODEL` |
-| `google` | `GOOGLE_API_KEY` | `gemini-2.5-flash` | `GOOGLE_MODEL` |
-| `ollama` | Running Ollama server and downloaded model | `llama3.2` | `OLLAMA_MODEL` |
+| `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` | `OPENAI_MODEL` |
+| `google` | `GOOGLE_API_KEY` | `gemini-3.8-flash` | `GOOGLE_MODEL` |
+| `ollama` (default) | Running Ollama server and downloaded model | `llama3.2` | `OLLAMA_MODEL` |
 
 For example, add one of these selections to `.env`:
 
